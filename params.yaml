@@ -1,5 +1,5 @@
 db:
-  table_name: users_churn
+  table_name: clean_users_charn
 
 split:
   test_size: 0.2

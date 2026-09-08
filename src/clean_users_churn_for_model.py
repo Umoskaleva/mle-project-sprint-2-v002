@@ -1,3 +1,6 @@
+
+# код достает из БД таблицу clean_users_charn (params.yaml) и сохраняет clean_users_churn_for_model.csv
+
 import os
 from pathlib import Path
 
@@ -5,7 +8,6 @@ import pandas as pd
 from dotenv import load_dotenv
 from sqlalchemy import create_engine
 import yaml
-
 
 def create_connection():
     load_dotenv()
