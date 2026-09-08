@@ -171,5 +171,10 @@ cython_debug/
 
 _checpoints.ipynb
 notebooks/
-data/processed/clean_users_churn_for_model.csv
+
+# Data files
+data/processed/
+*.csv
+*.joblib
+*.pkl
 
