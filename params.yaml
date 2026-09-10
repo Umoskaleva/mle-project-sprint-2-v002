@@ -23,7 +23,7 @@ cv:
     - f1
     - precision
     - recall
-    - logloss
+    - neg_log_loss
   # Метрики, которые считаем только на тесте (не в CV)
   test_metrics:
     - confusion_matrix

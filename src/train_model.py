@@ -5,6 +5,10 @@ import yaml
 import pandas as pd
 import numpy as np
 
+import os
+import boto3
+from pathlib import Path
+
 from sklearn.model_selection import train_test_split, StratifiedKFold, cross_validate
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (
@@ -25,19 +29,19 @@ def build_scoring_dict(metrics_list):
     ['roc_auc', 'f1', 'precision', 'recall', 'logloss']
     """
     scoring = {}
-    for m in metrics_list:
-        if m == "roc_auc":
+    for metric in metrics_list:
+        if metric == "roc_auc":
             scoring["roc_auc"] = "roc_auc"
-        elif m == "f1":
+        elif metric == "f1":
             scoring["f1"] = "f1"
-        elif m == "precision":
+        elif metric == "precision":
             scoring["precision"] = "precision"
-        elif m == "recall":
+        elif metric == "recall":
             scoring["recall"] = "recall"
-        elif m == "logloss":
-            scoring["logloss"] = make_scorer(log_loss, needs_proba=True)
+        elif metric in ("logloss", "neg_log_loss"):
+            scoring["neg_log_loss"] = "neg_log_loss"
         else:
-            raise ValueError(f"Неизвестная метрика для CV: {m}")
+            raise ValueError(f"Неизвестная метрика для CV: {metric}")
     return scoring
 
 
@@ -80,7 +84,7 @@ def main():
     cv_params = params["cv"]
 
     # 2. Загрузка данных из CSV
-    data = pd.read_csv("data/processed/clean_users_churn_for_model_cleaned.csv")
+    data = pd.read_csv("data/processed/clean_users_churn_for_model_preprocessed.csv")
 
     # Проверка, что целевая колонка есть
     if target_col not in data.columns:
@@ -128,9 +132,15 @@ def main():
 
     # Средние значения по фолдам для каждой метрики
     cv_mean_scores = {}
+
     for metric in cv_params["metrics"]:
         key = f"test_{metric}"
-        cv_mean_scores[metric] = float(np.mean(cv_results[key]))
+        score = float(np.mean(cv_results[key]))
+
+        if metric == "neg_log_loss":
+            cv_mean_scores["logloss"] = -score
+        else:
+            cv_mean_scores[metric] = score
 
     print("\n=== CV mean scores ===")
     for metric, value in cv_mean_scores.items():
@@ -187,3 +197,38 @@ def main():
 
 if __name__ == "__main__":
     main()
+    
+    
+    
+    # загрузка модели в хранилище S3
+
+# --- Настройки ---
+BUCKET_NAME = os.getenv("AWS_BUCKET_NAME")  # имя бакета
+MODEL_LOCAL_PATH = "/home/mle-user/mle_projects/mle-project-sprint-2-v002/results/logreg_churn_model.joblib"
+S3_KEY = "models/churn/logreg_churn_model.joblib"  # Путь внутри бакета
+
+# --- Переменные окружения для Yandex Cloud S3 ---
+os.environ["MLFLOW_S3_ENDPOINT_URL"] = "https://storage.yandexcloud.net"
+os.environ["AWS_DEFAULT_REGION"] = "ru-central1"
+
+# --- Создание клиента S3 ---
+s3_client = boto3.client(
+    service_name='s3',
+    endpoint_url=os.environ["MLFLOW_S3_ENDPOINT_URL"],
+    aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
+    aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
+    region_name=os.environ["AWS_DEFAULT_REGION"],
+)
+
+# --- Загрузка файла ---
+model_path = Path(MODEL_LOCAL_PATH)
+if not model_path.exists():
+    raise FileNotFoundError(f"Файл не найден: {model_path}")
+
+s3_client.upload_file(
+    Filename=str(model_path),
+    Bucket=BUCKET_NAME,
+    Key=S3_KEY
+)
+
+print(f"✅ Модель загружена: s3://{BUCKET_NAME}/{S3_KEY}")

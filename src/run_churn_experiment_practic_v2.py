@@ -31,10 +31,10 @@ s3 = boto3.client(
 # скачиваем модель в локальный файл
 s3.download_file(
     os.getenv("AWS_BUCKET_NAME"),
-    "models/fitted_model.pkl",
-    "fitted_model.pkl"
+    "models/churn/logreg_churn_model.joblib",
+    "logreg_churn_model.joblib"
 )
 
 # загружаем в переменную model
-model = joblib.load("fitted_model.pkl")
+model = joblib.load("logreg_churn_model.joblib")
 
